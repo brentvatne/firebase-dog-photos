@@ -1,6 +1,6 @@
-import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Button,
   Dimensions,
   Image,
@@ -10,28 +10,10 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
-import uniqBy from "lodash/uniqBy";
-import * as firebase from "firebase";
-import "firebase/firestore";
-
-if (!firebase.apps.length) {
-  firebase.initializeApp({
-    // this is not a private key — all safe to be public
-    apiKey: "AIzaSyDnyogHUy4vdLY1vk9HHXjwKcVsd3rQDHU",
-    authDomain: "corgi-photo.firebaseapp.com",
-    databaseURL: "https://corgi-photo.firebaseio.com",
-    projectId: "corgi-photo",
-    storageBucket: "corgi-photo.appspot.com",
-    messagingSenderId: "116095273122",
-    appId: "1:116095273122:web:2a20db9099e5458ecfaffb",
-    measurementId: "G-T3S6Z63LS9",
-  });
-}
-
-const auth = firebase.auth();
-const db = firebase.firestore();
-const corgisCol = db.collection("corgis");
+import { useDimensions } from "react-native-web-hooks";
+import { signIn, signOut, useCurrentUser, useCorgis, addCorgi } from "./db";
 
 export default function AppContainer() {
   return (
@@ -42,37 +24,12 @@ export default function AppContainer() {
 }
 
 function App() {
-  const [user, setUser] = React.useState(null);
-  useEffect(() => {
-    return auth.onAuthStateChanged((newUser) => {
-      setUser(newUser);
-    });
-  }, []);
-
-  const [corgis, setCorgis] = React.useState(null);
-  useEffect(() => {
-    return corgisCol
-      .orderBy("createdAt", "desc")
-      .limit(10)
-      .onSnapshot((snapshot) => {
-        const allCorgis = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        const filteredCorgis = allCorgis.filter(
-          (corgi) =>
-            corgi.url && corgi.url.startsWith("https://images.unsplash.com")
-        );
-        const dedupedCorgis = uniqBy(filteredCorgis, "url");
-        const mostRecentCorgis = dedupedCorgis.slice(0, 20);
-        setCorgis(mostRecentCorgis);
-      });
-  }, []);
+  const user = useCurrentUser();
+  const corgis = useCorgis();
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="always">
+      <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag">
         <View
           style={{
             flexDirection: "row",
@@ -86,10 +43,10 @@ function App() {
             title={user ? "Sign out" : "Sign in anonymously"}
             onPress={() => {
               try {
-                if (!user) {
-                  auth.signInAnonymously();
+                if (user) {
+                  signOut();
                 } else {
-                  auth.signOut();
+                  signIn();
                 }
               } catch (e) {
                 alert(e.message);
@@ -98,8 +55,7 @@ function App() {
           />
         </View>
         {user ? <NewCorgiForm /> : null}
-
-        {corgis ? <CorgiList corgis={corgis} /> : <Text>No corgis 😧</Text>}
+        <CorgiList corgis={corgis} />
         <StatusBar style="auto" />
       </ScrollView>
     </SafeAreaView>
@@ -109,20 +65,7 @@ function App() {
 function NewCorgiForm() {
   const [corgiUrl, setCorgiUrl] = useState(null);
   const handleAddCorgi = useCallback(async () => {
-    const user = auth.currentUser;
-    if (!user) {
-      return;
-    }
-
-    try {
-      await corgisCol.add({
-        url: corgiUrl,
-        uid: user.uid,
-        createdAt: new Date(),
-      });
-    } catch (e) {
-      alert(e.message);
-    }
+    addCorgi(url);
     setCorgiUrl(null);
   }, [corgiUrl]);
 
@@ -149,6 +92,18 @@ function NewCorgiForm() {
 }
 
 function CorgiList({ corgis }) {
+  const {
+    window: { width },
+  } = useDimensions();
+
+  if (!corgis) {
+    if (corgis === null) {
+      return <ActivityIndicator size="large" style={{ marginTop: 30 }} />;
+    } else {
+      return <Text>No corgis 😧</Text>;
+    }
+  }
+
   return (
     <View style={{ flexDirection: "row", flex: 1, flexWrap: "wrap" }}>
       {corgis.map((corgi) => (
@@ -156,8 +111,8 @@ function CorgiList({ corgis }) {
           key={corgi.url}
           source={{ uri: corgi.url }}
           style={{
-            width: Dimensions.get("window").width / 3,
-            height: Dimensions.get("window").width / 3,
+            width: width / 3,
+            height: width / 3,
             resizeMode: "cover",
           }}
           accessibilityLabel="Corgi"
