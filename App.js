@@ -79,10 +79,10 @@ function App() {
 }
 
 function NewCorgiForm() {
-  const [corgiUrl, setCorgiUrl] = useState(null);
+  const [corgiUrl, setCorgiUrl] = useState("");
   const handleAddCorgi = useCallback(async () => {
     addCorgi(url);
-    setCorgiUrl(null);
+    setCorgiUrl("");
   }, [corgiUrl]);
 
   return (
@@ -134,6 +134,7 @@ function CorgiList({ corgis }) {
           <Image
             source={{ uri: corgi.url }}
             style={{
+              backgroundColor: '#eee',
               width: width / 3,
               height: width / 3,
               resizeMode: "cover",
@@ -171,6 +172,7 @@ function CorgiList({ corgis }) {
                   width: width > height ? height : width,
                   height: width > height ? height : width,
                   resizeMode: "contain",
+                  backgroundColor: '#000',
                 }}
               />
             </TouchableOpacity>
