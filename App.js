@@ -15,9 +15,17 @@ import {
   View,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { useDimensions } from "react-native-web-hooks";
-import { signIn, signOut, useCurrentUser, useCorgis, addCorgi } from "./db";
+import {
+  signIn,
+  signOut,
+  useCurrentUser,
+  useCorgis,
+  addCorgi,
+  uploadImageAsync,
+} from "./db";
 
 export default function AppContainer() {
   return (
@@ -30,6 +38,34 @@ export default function AppContainer() {
 function App() {
   const user = useCurrentUser();
   const corgis = useCorgis();
+  const [isUploading, setIsUploading] = useState(false);
+
+  const pickImage = async () => {
+    let pickerResult = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+    });
+
+    handleImagePicked(pickerResult);
+  };
+
+  const handleImagePicked = async (pickerResult) => {
+    try {
+      setIsUploading(true);
+
+      if (!pickerResult.cancelled) {
+        let uploadUrl = await uploadImageAsync(pickerResult.uri);
+        console.log(uploadUrl);
+
+        await addCorgi(uploadUrl);
+      }
+    } catch (e) {
+      console.log(e);
+      alert("Upload failed, sorry :(");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -55,20 +91,11 @@ function App() {
             />
             <Text style={{ fontSize: 25 }}>corgislist</Text>
           </View>
-          <Button
-            title={user ? "Sign out" : "Sign in anonymously"}
-            onPress={() => {
-              try {
-                if (user) {
-                  signOut();
-                } else {
-                  signIn();
-                }
-              } catch (e) {
-                alert(e.message);
-              }
-            }}
-          />
+          {user ? (
+            <Button title="Upload Corgi" onPress={pickImage} />
+          ) : (
+            <Button title="Sign in anonymously" onPress={signIn} />
+          )}
         </View>
         {user ? <NewCorgiForm /> : null}
         <CorgiList corgis={corgis} />
@@ -105,7 +132,7 @@ function NewCorgiForm() {
         clearButtonMode="while-editing"
         style={{ flex: 1 }}
       />
-      <Button title="Add Corgi" onPress={handleAddCorgi} />
+      <Button title="Import Corgi" onPress={handleAddCorgi} />
     </View>
   );
 }
@@ -134,7 +161,7 @@ function CorgiList({ corgis }) {
           <Image
             source={{ uri: corgi.url }}
             style={{
-              backgroundColor: '#eee',
+              backgroundColor: "#eee",
               width: width / 3,
               height: width / 3,
               resizeMode: "cover",
@@ -172,7 +199,7 @@ function CorgiList({ corgis }) {
                   width: width > height ? height : width,
                   height: width > height ? height : width,
                   resizeMode: "contain",
-                  backgroundColor: '#000',
+                  backgroundColor: "#000",
                 }}
               />
             </TouchableOpacity>

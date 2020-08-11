@@ -29,7 +29,7 @@ export function signOut() {
   auth.signOut();
 }
 
-export async function addCorgi() {
+export async function addCorgi(corgiUrl) {
   const user = auth.currentUser;
 
   try {
@@ -68,7 +68,11 @@ export function useCorgis() {
 
         const filteredCorgis = allCorgis.filter(
           (corgi) =>
-            corgi.url && corgi.url.startsWith("https://images.unsplash.com")
+            corgi.url &&
+            (corgi.url.startsWith("https://images.unsplash.com") ||
+              corgi.url.startsWith(
+                "https://firebasestorage.googleapis.com/v0/b/corgi-photo.appspot.com"
+              ))
         );
         const dedupedCorgis = uniqBy(filteredCorgis, "url");
         const mostRecentCorgis = dedupedCorgis.slice(0, 20);
@@ -77,4 +81,30 @@ export function useCorgis() {
   }, []);
 
   return corgis;
+}
+
+export async function uploadImageAsync(uri) {
+  const blob = await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onload = function () {
+      resolve(xhr.response);
+    };
+    xhr.onerror = function (e) {
+      console.log(e);
+      reject(new TypeError("Network request failed"));
+    };
+    xhr.responseType = "blob";
+    xhr.open("GET", uri, true);
+    xhr.send(null);
+  });
+
+  // should use uuid pkg but easier to not have to install something when walking through things
+  const sillyId = new Date().getTime().toString() + Math.random().toString();
+  const ref = firebase.storage().ref().child(sillyId);
+  const snapshot = await ref.put(blob);
+
+  // We're done with the blob, close and release it
+  blob.close();
+
+  return await snapshot.ref.getDownloadURL();
 }
