@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import * as firebase from "firebase";
 import "firebase/firestore";
-import uniqBy from "lodash/uniqBy";
 
 if (!firebase.apps.length) {
   firebase.initializeApp({
@@ -74,8 +73,7 @@ export function useCorgis() {
                 "https://firebasestorage.googleapis.com/v0/b/corgi-photo.appspot.com"
               ))
         );
-        const dedupedCorgis = uniqBy(filteredCorgis, "url");
-        const mostRecentCorgis = dedupedCorgis.slice(0, 20);
+        const mostRecentCorgis = filteredCorgis.slice(0, 20);
         setCorgis(mostRecentCorgis);
       });
   }, []);
